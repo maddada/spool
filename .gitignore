@@ -32,6 +32,9 @@ dist-electron/
 # Browse tool session state
 .gstack/
 
+# Git worktrees
+.worktrees/
+
 # Native binaries (rebuilt per-platform via electron-rebuild)
 build/
 *.node
