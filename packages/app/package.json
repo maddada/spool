@@ -11,6 +11,8 @@
     "clean": "rm -rf out dist-electron"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource/geist-mono": "^5.2.7",
     "@spool/core": "workspace:*",
     "@tanstack/react-virtual": "^3.13.6",
     "better-sqlite3": "^11.10.0",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
+    "@tailwindcss/vite": "^4.1.4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.3",
     "@types/react": "^19.1.2",
@@ -28,8 +31,7 @@
     "electron": "^34.5.0",
     "electron-builder": "^26.0.12",
     "electron-vite": "^3.1.0",
-    "vite": "^6.3.3",
     "tailwindcss": "^4.1.4",
-    "@tailwindcss/vite": "^4.1.4"
+    "vite": "^6.3.3"
   }
 }

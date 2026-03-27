@@ -14,3 +14,4 @@ Key rules at a glance:
 - "via ACP · local" label always shown on AI-mode answers — non-negotiable trust signal
 
 In QA mode, flag any code that doesn't match DESIGN.md.
+

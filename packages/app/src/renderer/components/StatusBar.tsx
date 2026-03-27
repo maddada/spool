@@ -7,7 +7,6 @@ interface Props {
 
 export default function StatusBar({ syncStatus }: Props) {
   const [status, setStatus] = useState<StatusInfo | null>(null)
-  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     if (!window.spool) return
@@ -18,38 +17,21 @@ export default function StatusBar({ syncStatus }: Props) {
   const isOk = !syncStatus || syncStatus.phase === 'done'
 
   return (
-    <div className="flex-none border-t border-neutral-100 dark:border-neutral-800">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left px-4 py-1.5 flex items-center gap-1.5 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
-      >
+    <div className="flex-none h-[30px] bg-warm-surface dark:bg-dark-surface border-t border-warm-border dark:border-dark-border flex items-center justify-between px-4">
+      <div className="flex items-center gap-1.5">
         <span className={`w-1.5 h-1.5 rounded-full flex-none ${isOk ? 'bg-green-500' : 'bg-amber-400 animate-pulse'}`} />
-        <span className="text-xs text-neutral-400 dark:text-neutral-500 flex-1 truncate">{statusText}</span>
-        <svg
-          width="10" height="10"
-          viewBox="0 0 10 10"
-          className={`text-neutral-300 transition-transform ${expanded ? '' : 'rotate-180'}`}
-        >
-          <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        </svg>
-      </button>
-
-      {expanded && status && (
-        <div className="px-4 pb-2 text-xs text-neutral-400 space-y-0.5">
-          <div className="flex justify-between">
-            <span>Claude</span><span>{status.claudeSessions} sessions</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Codex</span><span>{status.codexSessions} sessions</span>
-          </div>
-          <div className="flex justify-between">
-            <span>DB size</span><span>{formatBytes(status.dbSizeBytes)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Location</span><span className="font-mono text-[10px] truncate max-w-48">{status.dbPath}</span>
-          </div>
-        </div>
-      )}
+        <span className="text-[11px] font-mono text-warm-muted dark:text-dark-muted truncate">
+          {statusText}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <button className="text-[11px] text-warm-faint hover:text-warm-text dark:text-dark-muted dark:hover:text-dark-text transition-colors">
+          ⌘K Capture
+        </button>
+        <button className="text-[11px] text-warm-faint hover:text-warm-text dark:text-dark-muted dark:hover:text-dark-text transition-colors">
+          Sources +
+        </button>
+      </div>
     </div>
   )
 }
@@ -80,9 +62,4 @@ function formatTimeAgo(iso: string): string {
   } catch {
     return iso
   }
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
