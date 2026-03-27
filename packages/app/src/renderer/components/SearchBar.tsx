@@ -35,7 +35,7 @@ export default function SearchBar({ query, onChange, onBack, onSubmit, isSearchi
           </svg>
         </button>
       )}
-      <div className={`relative flex-1 group ${isHome ? 'focus-within:shadow-md transition-shadow duration-150' : ''}`}>
+      <div className={`relative flex-1 group`}>
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-faint dark:text-dark-muted">
           {isSearching ? (
             <svg className="animate-spin" width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -63,9 +63,9 @@ export default function SearchBar({ query, onChange, onBack, onSubmit, isSearchi
             'border border-warm-border dark:border-dark-border',
             'placeholder:text-warm-faint dark:placeholder:text-dark-muted',
             'text-warm-text dark:text-dark-text',
-            'focus:ring-2 focus:ring-accent/30 dark:focus:ring-accent-dark/30',
+            'focus:ring-0',
             isHome
-              ? 'pl-10 pr-[130px] py-3 text-[15px] shadow-sm'
+              ? 'pl-10 pr-[130px] py-3 text-[15px]'
               : 'pl-9 pr-[100px] py-[7px] text-[13.5px]',
           ].join(' ')}
           autoComplete="off"
@@ -101,7 +101,7 @@ function ModePill({ mode, onModeChange, compact }: { mode: SearchMode; onModeCha
           'flex items-center gap-1 rounded-[16px] text-[11px] font-medium cursor-pointer border-none transition-all duration-[120ms]',
           compact ? 'px-2 py-[3px]' : 'px-2.5 py-1',
           mode === 'fast'
-            ? 'bg-warm-bg dark:bg-dark-bg text-warm-text dark:text-dark-text shadow-sm'
+            ? 'bg-warm-bg dark:bg-dark-bg text-warm-text dark:text-dark-text'
             : 'bg-transparent text-warm-muted dark:text-dark-muted',
         ].join(' ')}
       >
@@ -114,7 +114,7 @@ function ModePill({ mode, onModeChange, compact }: { mode: SearchMode; onModeCha
           'flex items-center gap-1 rounded-[16px] text-[11px] font-medium cursor-pointer border-none transition-all duration-[120ms]',
           compact ? 'px-2 py-[3px]' : 'px-2.5 py-1',
           mode === 'ai'
-            ? 'bg-warm-bg dark:bg-dark-bg text-warm-text dark:text-dark-text shadow-sm'
+            ? 'bg-warm-bg dark:bg-dark-bg text-warm-text dark:text-dark-text'
             : 'bg-transparent text-warm-muted dark:text-dark-muted',
         ].join(' ')}
       >

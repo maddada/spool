@@ -46,8 +46,18 @@ export default function StatusBar({ syncStatus, searchMode = 'fast', aiAgent }: 
 
   const cycleTheme = () => {
     if (!window.spool) return
-    const idx = themeCycle.indexOf(theme)
-    const next: Theme = themeCycle[(idx + 1) % themeCycle.length] ?? 'system'
+    const osDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const effectivelyDark = theme === 'dark' || (theme === 'system' && osDark)
+    let idx = themeCycle.indexOf(theme)
+    // Skip 'system' if it would look the same as the current effective theme
+    let next: Theme
+    do {
+      idx = (idx + 1) % themeCycle.length
+      next = themeCycle[idx] ?? 'system'
+    } while (
+      next === 'system' &&
+      ((effectivelyDark && osDark) || (!effectivelyDark && !osDark))
+    )
     setTheme(next)
     window.spool.setTheme(next)
   }
