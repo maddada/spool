@@ -21,11 +21,13 @@ export default function App() {
 
   // Load recent sessions on mount
   useEffect(() => {
+    if (!window.spool) return
     window.spool.listSessions(30).then(setRecentSessions).catch(console.error)
   }, [])
 
   // Subscribe to sync progress and new sessions
   useEffect(() => {
+    if (!window.spool) return () => {}
     const offProgress = window.spool.onSyncProgress((e) => {
       setSyncStatus(e)
       if (e.phase === 'done') {
@@ -51,7 +53,7 @@ export default function App() {
     }
     setIsSearching(true)
     try {
-      const res = await window.spool.search(q, 20)
+      const res = window.spool ? await window.spool.search(q, 20) : []
       setResults(res)
     } finally {
       setIsSearching(false)
@@ -89,7 +91,7 @@ export default function App() {
       const dy = e.screenY - dragState.current.lastY
       dragState.current.lastX = e.screenX
       dragState.current.lastY = e.screenY
-      window.spool.moveWindow(dx, dy)
+      window.spool?.moveWindow(dx, dy)
     }
     const onUp = () => { dragState.current = null }
     document.addEventListener('mousemove', onMove)

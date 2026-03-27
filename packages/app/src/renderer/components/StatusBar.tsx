@@ -10,6 +10,7 @@ export default function StatusBar({ syncStatus }: Props) {
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
+    if (!window.spool) return
     window.spool.getStatus().then(setStatus).catch(console.error)
   }, [syncStatus])
 
