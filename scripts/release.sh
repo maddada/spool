@@ -56,9 +56,8 @@ mv "$DMG" "$FINAL_DMG"
 green "DMG: $FINAL_DMG ($(du -h "$FINAL_DMG" | cut -f1))"
 
 # ── Clean junk from dist ──
-find packages/app/dist -maxdepth 1 \
+find packages/app/dist -maxdepth 1 -mindepth 1 \
   -not -name "$DMG_NAME" \
-  -not -name "." \
   -not -name "mac-arm64" \
   -exec rm -rf {} + 2>/dev/null || true
 
