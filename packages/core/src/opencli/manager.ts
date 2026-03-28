@@ -1,7 +1,8 @@
-import { spawn } from 'node:child_process'
+import { spawn, execSync } from 'node:child_process'
+import { homedir } from 'node:os'
 import type Database from 'better-sqlite3'
 import type { OpenCLISetupStatus, PlatformInfo, CapturedItem } from '../types.js'
-import { cachedResolve } from '../util/resolve-bin.js'
+import { cachedResolve, clearResolveCache } from '../util/resolve-bin.js'
 import { parseOpenCLIOutput, parseOpenCLIItem, detectPlatform } from './parser.js'
 import { getStrategy, SYNC_STRATEGIES } from './strategies.js'
 import {
@@ -50,13 +51,12 @@ export class OpenCLIManager {
     // Check browser bridge status via `opencli doctor`
     try {
       const bridgeOutput = await this.exec(['doctor'], 10000)
-      const lower = bridgeOutput.toLowerCase()
-      result.browserBridgeReady = lower.includes('[ok]') && lower.includes('extension')
+      // Match "[OK] Extension" specifically — not just any [OK] + any "extension"
+      result.browserBridgeReady = /\[ok]\s*extension/i.test(bridgeOutput)
     } catch {}
 
     // Check if Chrome is running
     try {
-      const { execSync } = await import('node:child_process')
       execSync('pgrep -x "Google Chrome" || pgrep -x chrome || pgrep -x chromium', {
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 3000,
@@ -71,11 +71,12 @@ export class OpenCLIManager {
 
   async installCli(): Promise<{ ok: boolean; error?: string }> {
     try {
-      const npmPath = cachedResolve('npm') ?? 'npm'
+      // Use login shell to pick up nvm/fnm/volta PATH on macOS GUI apps
       await new Promise<string>((resolve, reject) => {
-        const proc = spawn(npmPath, ['install', '-g', '@jackwener/opencli'], {
+        const proc = spawn('bash', ['-lc', 'npm install -g @jackwener/opencli'], {
           stdio: ['pipe', 'pipe', 'pipe'],
           env: { ...process.env },
+          timeout: 60000,
         })
         let stdout = ''
         let stderr = ''
@@ -83,10 +84,12 @@ export class OpenCLIManager {
         proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
         proc.on('close', (code) => {
           if (code === 0) resolve(stdout)
-          else reject(new Error(`npm install failed (code ${code}): ${stderr}`))
+          else reject(new Error(`npm install failed (code ${code}): ${stderr.slice(0, 500)}`))
         })
         proc.on('error', reject)
       })
+      // Clear cached resolve so next checkSetup finds the newly installed binary
+      clearResolveCache('opencli')
       return { ok: true }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -196,6 +199,29 @@ export class OpenCLIManager {
 
   // ── Internal ───────────────────────────────────────────────────────────
 
+  private _fullPath: string | null = null
+
+  /** Build a PATH that includes common Node manager dirs — needed for macOS GUI apps. */
+  private getFullPath(): string {
+    if (this._fullPath) return this._fullPath
+    const base = process.env['PATH'] ?? ''
+    const home = homedir()
+    const extras = [
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      `${home}/.local/bin`,
+      `${home}/.nvm/current/bin`,
+    ]
+    // Try to get full PATH from login shell
+    try {
+      const shellPath = execSync('bash -lc "echo $PATH"', { encoding: 'utf8', timeout: 3000, stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+      this._fullPath = shellPath
+      return shellPath
+    } catch {}
+    this._fullPath = [...extras, base].join(':')
+    return this._fullPath
+  }
+
   private exec(args: string[], timeout = 30000): Promise<string> {
     const binPath = cachedResolve('opencli')
     if (!binPath) throw new Error('opencli not installed. Run: npm install -g @jackwener/opencli')
@@ -203,7 +229,7 @@ export class OpenCLIManager {
     return new Promise((resolve, reject) => {
       const proc = spawn(binPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env },
+        env: { ...process.env, PATH: this.getFullPath() },
         timeout,
       })
 
@@ -227,7 +253,7 @@ export class OpenCLIManager {
     return new Promise((resolve, reject) => {
       const proc = spawn(binPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env },
+        env: { ...process.env, PATH: this.getFullPath() },
         timeout,
       })
 
