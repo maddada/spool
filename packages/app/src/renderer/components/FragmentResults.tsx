@@ -2,13 +2,14 @@ import { useState } from 'react'
 import type { FragmentResult, CaptureResult, SearchResult } from '@spool/core'
 import ContinueActions from './ContinueActions.js'
 
-interface Props {
+type Props = {
   results: SearchResult[]
   query: string
   onOpenSession: (uuid: string) => void
+  onCopySessionId: (source: FragmentResult['source']) => void
 }
 
-export default function FragmentResults({ results, query, onOpenSession }: Props) {
+export default function FragmentResults({ results, query, onOpenSession, onCopySessionId }: Props) {
   const [activeFilter, setActiveFilter] = useState('all')
 
   if (results.length === 0) {
@@ -61,7 +62,7 @@ export default function FragmentResults({ results, query, onOpenSession }: Props
           {filtered.map((result, i) =>
             result.kind === 'capture'
               ? <CaptureRow key={`cap-${result.captureId}`} result={result} />
-              : <FragmentRow key={`frag-${result.sessionUuid}-${i}`} result={result} onOpenSession={onOpenSession} />
+              : <FragmentRow key={`frag-${result.sessionUuid}-${i}`} result={result} onOpenSession={onOpenSession} onCopySessionId={onCopySessionId} />
           )}
         </div>
       </div>
@@ -69,7 +70,15 @@ export default function FragmentResults({ results, query, onOpenSession }: Props
   )
 }
 
-function FragmentRow({ result, onOpenSession }: { result: FragmentResult & { kind: 'fragment' }; onOpenSession: (uuid: string) => void }) {
+function FragmentRow({
+  result,
+  onOpenSession,
+  onCopySessionId,
+}: {
+  result: FragmentResult & { kind: 'fragment' }
+  onOpenSession: (uuid: string) => void
+  onCopySessionId: (source: FragmentResult['source']) => void
+}) {
   const snippet = result.snippet.replace(/<mark>/g, '<strong>').replace(/<\/mark>/g, '</strong>')
   const date = formatDate(result.startedAt)
   const project = result.project.split('/').pop() ?? result.project
@@ -91,7 +100,7 @@ function FragmentRow({ result, onOpenSession }: { result: FragmentResult & { kin
         {result.sessionTitle}
       </p>
 
-      <ContinueActions result={result} onOpenSession={onOpenSession} />
+      <ContinueActions result={result} onOpenSession={onOpenSession} onCopySessionId={onCopySessionId} />
     </div>
   )
 }
