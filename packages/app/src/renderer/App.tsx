@@ -31,6 +31,7 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<{ phase: string; count: number; total: number } | null>(null)
   const [status, setStatus] = useState<StatusInfo | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // AI mode state
   const [searchMode, setSearchMode] = useState<SearchMode>('fast')
@@ -48,6 +49,7 @@ export default function App() {
   const [showCaptureModal, setShowCaptureModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [captureSources, setCaptureSources] = useState<Array<{ label: string; count: number }>>([])
+  const [resumeToastSource, setResumeToastSource] = useState<'claude' | 'codex' | null>(null)
 
 
   const isHomeMode = homeMode && view === 'search' && !selectedSession
@@ -70,6 +72,12 @@ export default function App() {
 
   // Detect available ACP agents on mount
   useEffect(() => { refreshAgents() }, [])
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
+  }, [])
 
   // Listen for AI streaming chunks and tool calls
   useEffect(() => {
@@ -249,11 +257,17 @@ export default function App() {
     if (query.trim() && searchMode === 'fast') doSearch(query)
   }, [query, searchMode, doSearch, refreshCaptureSources])
 
+  const handleCopySessionId = useCallback((source: FragmentResult['source']) => {
+    setResumeToastSource(source === 'claude' ? 'claude' : 'codex')
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setResumeToastSource(null), 3200)
+  }, [])
+
   const activeAgentName = availableAgents.find(a => a.id === aiAgent)?.name ?? aiAgent
   const hasAgents = availableAgents.length > 0
 
   return (
-    <div className="flex flex-col h-screen bg-warm-bg dark:bg-dark-bg text-warm-text dark:text-dark-text">
+    <div className="relative flex flex-col h-screen bg-warm-bg dark:bg-dark-bg text-warm-text dark:text-dark-text">
       <div className="flex flex-col flex-1 min-h-0">
         {isHomeMode ? (
           <HomeView
@@ -298,7 +312,7 @@ export default function App() {
 
             <div className="flex-1 min-h-0 overflow-hidden">
               {view === 'session' && selectedSession ? (
-                <SessionDetail sessionUuid={selectedSession} />
+                <SessionDetail sessionUuid={selectedSession} onCopySessionId={handleCopySessionId} />
               ) : (
                 <div className="h-full flex flex-col overflow-hidden">
                   {/* AI answer card — shown above results in AI mode */}
@@ -328,7 +342,12 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="flex-1 min-h-0">
-                      <FragmentResults results={results} query={query} onOpenSession={handleOpenSession} />
+                      <FragmentResults
+                        results={results}
+                        query={query}
+                        onOpenSession={handleOpenSession}
+                        onCopySessionId={handleCopySessionId}
+                      />
                     </div>
                   )}
                 </div>
@@ -345,6 +364,10 @@ export default function App() {
         onSourcesClick={() => setShowSourcesPanel(true)}
         onSettingsClick={() => setShowSettings(true)}
       />
+
+      {resumeToastSource && (
+        <ResumeToast source={resumeToastSource} />
+      )}
 
       {/* Modals */}
       {showOnboarding && (
@@ -369,6 +392,23 @@ export default function App() {
       {showSettings && (
         <SettingsPanel onClose={() => { setShowSettings(false); refreshAgents() }} />
       )}
+    </div>
+  )
+}
+
+function ResumeToast({ source }: { source: 'claude' | 'codex' }) {
+  const command = source === 'claude' ? 'claude -r' : 'codex resume'
+  const suffix = source === 'claude'
+    ? 'then then paste the id to resume this session'
+    : 'then paste the id to resume this session'
+
+  return (
+    <div className="pointer-events-none absolute bottom-10 left-1/2 z-40 -translate-x-1/2 animate-in fade-in duration-150 px-4">
+      <div className="rounded-full border border-warm-border dark:border-dark-border bg-warm-surface2/95 dark:bg-dark-surface2/95 px-4 py-2 shadow-lg backdrop-blur-sm">
+        <p className="whitespace-nowrap text-xs text-warm-text dark:text-dark-text">
+          Write <code className="rounded bg-warm-bg dark:bg-dark-bg px-1.5 py-0.5 font-mono text-[11px]">{command}</code> {suffix}
+        </p>
+      </div>
     </div>
   )
 }
