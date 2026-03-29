@@ -25,11 +25,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build core
-        run: pnpm --filter @spool/core build
-
-      - name: Build app (arm64 DMG)
-        run: pnpm --filter @spool/app build
+      - name: Build app (arm64 DMG + ZIP)
+        run: |
+          pnpm --filter @spool/core build
+          cd packages/app
+          npx electron-vite build
+          npx electron-builder --mac --arm64 --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
