@@ -7,19 +7,26 @@ export interface AgentInfo {
   name: string
   path: string
   status: 'ready' | 'not_found' | 'not_running'
-  acpMode: 'extension' | 'native' | 'websocket'
+  acpMode: 'extension' | 'native' | 'websocket' | 'sdk'
 }
 
 export interface BuiltinAgent {
   name: string
   bin: string
-  acpMode: 'extension' | 'native' | 'websocket'
+  acpMode: 'extension' | 'native' | 'websocket' | 'sdk'
+}
+
+export interface SdkAgentConfig {
+  apiKey?: string
+  model?: string
+  baseURL?: string
 }
 
 export interface AgentsConfig {
   defaultAgent?: string
   defaultSearchSort?: SearchSortOrder
   terminal?: string
+  sdkAgent?: SdkAgentConfig
   customAgents?: Record<string, {
     name?: string
     bin: string

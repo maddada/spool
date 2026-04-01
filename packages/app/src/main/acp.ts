@@ -21,6 +21,16 @@ export interface ToolCallEvent {
   kind?: string
 }
 
+/** Configuration for the built-in Open Agent SDK runtime */
+export interface SdkAgentConfig {
+  /** Anthropic API key (or third-party provider key) */
+  apiKey?: string
+  /** Model ID (e.g. 'claude-sonnet-4-6') */
+  model?: string
+  /** API base URL override (for OpenRouter or other providers) */
+  baseURL?: string
+}
+
 /** User-facing config stored in ~/.spool/agents.json */
 export interface AgentsConfig {
   /** Which agent to use by default in AI mode */
@@ -29,6 +39,8 @@ export interface AgentsConfig {
   defaultSearchSort?: 'relevance' | 'newest' | 'oldest'
   /** Preferred terminal app for session resume (e.g. "iTerm2", "Warp"). Auto-detected if unset. */
   terminal?: string
+  /** Built-in Open Agent SDK configuration */
+  sdkAgent?: SdkAgentConfig
   /** Custom agent definitions (extend beyond builtins) */
   customAgents?: Record<string, {
     name?: string
@@ -84,7 +96,7 @@ function getLoginShellEnv(): Record<string, string> {
   return {}
 }
 
-type AcpMode = 'extension' | 'native' | 'websocket'
+type AcpMode = 'extension' | 'native' | 'websocket' | 'sdk'
 
 interface AgentConfig {
   name: string
@@ -97,6 +109,11 @@ interface AgentConfig {
 }
 
 const BUILTIN_AGENT_CONFIGS: Record<string, AgentConfig> = {
+  builtin: {
+    name: 'Built-in',
+    bin: '',  // no binary needed — runs in-process via SDK
+    acpMode: 'sdk',
+  },
   claude: {
     name: 'Claude Code',
     bin: 'claude',
@@ -182,13 +199,27 @@ export class AcpManager {
   private detectedAgents: AgentInfo[] | null = null
   private activeSession: AcpSession | null = null
   private activeWs: { close: () => void } | null = null
+  private activeSdkAbort: AbortController | null = null
 
   /** Detect all agent CLIs installed on the machine */
   async detectAgents(): Promise<AgentInfo[]> {
     const configs = getEffectiveConfigs()
+    const userConfig = loadAgentsConfig()
     const agents: AgentInfo[] = []
 
     for (const [id, config] of Object.entries(configs)) {
+      if (config.acpMode === 'sdk') {
+        // SDK agent: ready if API key is configured
+        const hasKey = !!userConfig?.sdkAgent?.apiKey
+        agents.push({
+          id,
+          name: config.name,
+          path: hasKey ? 'Built-in SDK' : '',
+          status: hasKey ? 'ready' : 'not_found',
+          acpMode: config.acpMode,
+        })
+        continue
+      }
       const p = cachedResolve(config.bin)
       agents.push({
         id,
@@ -242,6 +273,9 @@ export class AcpManager {
 
     const prompt = this.buildPrompt(userQuery)
 
+    if (config.acpMode === 'sdk') {
+      return this.queryViaSdk(prompt, onChunk, onToolCall)
+    }
     if (config.acpMode === 'websocket') {
       return this.queryViaWebSocket(config, prompt, onChunk, onToolCall)
     }
@@ -527,6 +561,72 @@ export class AcpManager {
   }
 
   /**
+   * Query via Open Agent SDK — runs the agent loop in-process.
+   * Uses the user's configured API key, model, and optional base URL.
+   */
+  private async queryViaSdk(
+    prompt: string,
+    onChunk: (text: string) => void,
+    onToolCall?: (event: ToolCallEvent) => void,
+  ): Promise<string> {
+    const userConfig = loadAgentsConfig()
+    const sdkCfg = userConfig?.sdkAgent
+    if (!sdkCfg?.apiKey) throw new Error('Open Agent requires an API key. Configure it in Settings.')
+
+    const { createAgent } = await import('@shipany/open-agent-sdk')
+
+    const abortController = new AbortController()
+    this.activeSdkAbort = abortController
+
+    const agent = createAgent({
+      apiKey: sdkCfg.apiKey,
+      model: sdkCfg.model || 'claude-sonnet-4-6',
+      baseURL: sdkCfg.baseURL || undefined,
+      permissionMode: 'bypassPermissions',
+      allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
+      abortSignal: abortController.signal,
+      maxTurns: 20,
+    })
+
+    let fullText = ''
+
+    try {
+      for await (const event of agent.query(prompt)) {
+        const msg = event as any
+
+        if (msg.type === 'assistant') {
+          const blocks = msg.message?.content || []
+          for (const block of blocks) {
+            if (block.type === 'text' && block.text) {
+              fullText += block.text
+              onChunk(block.text)
+            }
+            if (block.type === 'tool_use') {
+              onToolCall?.({
+                toolCallId: block.id ?? `tool-${Date.now()}`,
+                title: block.name ?? 'Tool call',
+                status: 'in_progress',
+                kind: block.name,
+              })
+            }
+          }
+        }
+
+        if (msg.type === 'result') {
+          // Final result event — text already streamed
+        }
+      }
+    } catch (err) {
+      if (fullText) return fullText
+      throw err
+    } finally {
+      this.activeSdkAbort = null
+    }
+
+    return fullText
+  }
+
+  /**
    * Query via Alma's WebSocket API (non-ACP).
    * Creates a temporary thread, connects to WS, sends generate_response,
    * streams message_delta events back as chunks/tool calls.
@@ -681,6 +781,10 @@ export class AcpManager {
     if (this.activeWs) {
       this.activeWs.close()
       this.activeWs = null
+    }
+    if (this.activeSdkAbort) {
+      this.activeSdkAbort.abort()
+      this.activeSdkAbort = null
     }
   }
 

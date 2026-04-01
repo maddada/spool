@@ -26,6 +26,9 @@ importers:
       '@fontsource/geist-mono':
         specifier: ^5.2.7
         version: 5.2.7
+      '@shipany/open-agent-sdk':
+        specifier: link:/Users/claw/code/linkclaw/open-agent-sdk
+        version: link:../../../open-agent-sdk
       '@spool/core':
         specifier: workspace:*
         version: link:../core
